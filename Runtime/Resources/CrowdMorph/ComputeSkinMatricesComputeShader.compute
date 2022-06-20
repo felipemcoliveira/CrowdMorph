@@ -1,0 +1,53 @@
+﻿#pragma kernel ComputeSkinMatricesComputeKernel
+
+#include "/AffineTransform.cginc"
+
+// ----------------------------------------------------------------------------------------
+// Structures
+// ----------------------------------------------------------------------------------------
+
+struct SkinnedMeshInstance
+{
+    int SkinMatrixBufferIndex;
+    int SkeletonMatrixBufferIndex;
+};
+
+struct SkinnedMeshBoneData
+{
+    AffineTransform BindPose;
+    int SkeletonIndex;
+    float3 Pad;
+};
+
+// ----------------------------------------------------------------------------------------
+// Globals
+// ----------------------------------------------------------------------------------------
+
+uniform StructuredBuffer<SkinnedMeshInstance>   _SkinnedMeshInstances;
+
+uniform StructuredBuffer<SkinnedMeshBoneData>   _SkinnedMeshBones;
+uniform StructuredBuffer<AffineTransform>       _SkeletonMatrices;
+uniform RWStructuredBuffer<AffineTransform>     _CrowdMorphSkinMatrices : register(u1);
+
+uint g_InstanceBufferStartIndex;
+uint g_InstanceCount;
+uint g_BoneCount;
+uint g_SkinBoneDataBufferIndex;
+
+// ----------------------------------------------------------------------------------------
+// Kernel
+// ----------------------------------------------------------------------------------------
+
+[numthreads(64, 1, 1)]
+void ComputeSkinMatricesComputeKernel(uint3 id : SV_DispatchThreadID)
+{
+    const SkinnedMeshInstance instance = _SkinnedMeshInstances[g_InstanceBufferStartIndex + (id.x % g_InstanceCount)];
+    for (uint i = 0; i < g_BoneCount; i++)
+    {
+        const SkinnedMeshBoneData boneData = _SkinnedMeshBones[g_SkinBoneDataBufferIndex + i];
+        const AffineTransform skeletonMatrix = _SkeletonMatrices[instance.SkeletonMatrixBufferIndex + boneData.SkeletonIndex];
+
+        _CrowdMorphSkinMatrices[instance.SkinMatrixBufferIndex + i] = AffineTransformMul(skeletonMatrix, boneData.BindPose);
+    }
+}
+ 

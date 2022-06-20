@@ -1,0 +1,40 @@
+﻿#pragma kernel ComputeLocalToRootComputeKernel
+
+#include "/AffineTransform.cginc"
+
+// ----------------------------------------------------------------------------------------
+// Globals
+// ----------------------------------------------------------------------------------------
+
+uniform StructuredBuffer<int>               _SkeletonBoneParents;
+uniform StructuredBuffer<int>               _SkeletonInstances;
+uniform RWStructuredBuffer<AffineTransform> _SkeletonMatrices : register(u1);
+
+uint g_BoneCount;
+uint g_InstanceCount;
+uint g_InstanceBufferStartIndex;
+uint g_SkeletonBoneParentBufferIndex;
+
+// ----------------------------------------------------------------------------------------
+// Kernel
+// ----------------------------------------------------------------------------------------
+
+[numthreads(64, 1, 1)]
+void ComputeLocalToRootComputeKernel(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= g_InstanceCount)
+        return;
+
+    const int skeletonMatrixBufferIndex = _SkeletonInstances[id.x + g_InstanceBufferStartIndex];
+
+    for (uint i = 0; i < g_BoneCount; i++)
+    {
+        const int parentIndex = _SkeletonBoneParents[g_SkeletonBoneParentBufferIndex + i];
+
+        const AffineTransform localToParent = _SkeletonMatrices[skeletonMatrixBufferIndex + i];
+        const AffineTransform parentLocalToParent = _SkeletonMatrices[skeletonMatrixBufferIndex + max(0, parentIndex)];
+
+        const AffineTransform localToRoot = AffineTransformLerp(AffineTransformMul(parentLocalToParent, localToParent), localToParent, parentIndex < 0);
+        _SkeletonMatrices[skeletonMatrixBufferIndex + i] = localToRoot;
+    }
+}

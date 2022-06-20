@@ -1,0 +1,31 @@
+{
+  "name": "com.felipemcoliveira.crowdmorph",
+  "displayName": "Crowd Morph",
+  "version": "0.0.1",
+  "unity": "2019.3",
+  "keywords": [
+    "unity",
+    "animation",
+    "crowd",
+    "dots"
+  ],
+  "samples": [
+    {
+      "displayName": "Character Sample",
+      "description": "Contains a animated character",
+      "path": "Samples~/CharacterSample"
+    }
+  ],
+  "description": "Crowd animation with DOTS.",
+  "dependencies": {
+    "com.unity.mathematics": "1.2.1",
+    "com.unity.collections": "0.15.0-preview.21",
+    "com.unity.jobs": "0.8.0-preview.23",
+    "com.unity.burst": "1.4.1",
+    "com.unity.entities": "0.17.0-preview.42",
+    "com.unity.rendering.hybrid": "0.11.0-preview.44",
+    "com.unity.test-framework": "1.1.27",
+    "com.unity.test-framework.performance": "2.3.1-preview",
+    "com.unity.modules.animation": "1.0.0"
+  }
+}

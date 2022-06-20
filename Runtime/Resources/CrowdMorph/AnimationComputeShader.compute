@@ -1,0 +1,77 @@
+﻿#pragma kernel AnimationComputeKernel
+
+#include "/AffineTransform.cginc"
+
+// ----------------------------------------------------------------------------------------
+// Structures
+// ----------------------------------------------------------------------------------------
+
+struct AnimationCommand 
+{
+    uint Keyframes; 
+    float KeyframeWeight;
+    float Weight;
+    int BlendingMode;
+    int ClipSampleBufferIndex;
+    int SkeletonMatrixBufferIndex;
+    int AdditiveReferencePoseMatrixBufferIndex;
+    int SkeletonMaskBufferIndex;
+};
+
+// ----------------------------------------------------------------------------------------
+// Constants
+// ----------------------------------------------------------------------------------------
+
+const int kBlendingMode_Override = 0;
+const int kBlendingMode_Additive = 1;
+
+// ----------------------------------------------------------------------------------------
+// Globals
+// ----------------------------------------------------------------------------------------
+
+uniform StructuredBuffer<AffineTransform>   _ClipSamples;
+uniform StructuredBuffer<int2>              _SkeletonMasks;
+uniform StructuredBuffer<AnimationCommand>  _AnimationCommands;
+
+uniform RWStructuredBuffer<AffineTransform> _SkeletonMatrices : register(u1);
+
+uint g_BoneCount;
+uint g_CommandBufferIndex;
+uint g_CommandCount;
+
+// ----------------------------------------------------------------------------------------
+// Kernel
+// ----------------------------------------------------------------------------------------
+
+[numthreads(64, 1, 1)]
+void AnimationComputeKernel(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= g_CommandCount)
+        return;
+
+    const AnimationCommand cmd = _AnimationCommands[id.x + g_CommandBufferIndex];
+
+    const uint leftKeyframe = cmd.Keyframes & 0xFFFF;
+    const uint rightKeyframe = cmd.Keyframes >> 16;
+
+    const uint2 skeletonMask = _SkeletonMasks[cmd.SkeletonMaskBufferIndex];
+
+    for (uint i = 0; i < g_BoneCount; i++)
+    {
+        const int isBoneActive = (skeletonMask[i >> 5] >> (i & 31)) & 1;
+
+        const AffineTransform leftKeyframeMatrix = _ClipSamples[cmd.ClipSampleBufferIndex + leftKeyframe * g_BoneCount + i];
+        const AffineTransform rightKeyframeMatrix = _ClipSamples[cmd.ClipSampleBufferIndex + rightKeyframe * g_BoneCount + i];
+        const AffineTransform keyframeMatrix = AffineTransformLerp(leftKeyframeMatrix, rightKeyframeMatrix, cmd.KeyframeWeight);
+
+        const AffineTransform additiveReferencePoseMatrix = _ClipSamples[cmd.AdditiveReferencePoseMatrixBufferIndex + i];
+        const AffineTransform previousSkeletonMatrix = _SkeletonMatrices[cmd.SkeletonMatrixBufferIndex + i];
+
+        const AffineTransform additiveMatrix = AffineTransformMul(AffineTransformMul(keyframeMatrix, additiveReferencePoseMatrix), previousSkeletonMatrix);
+        const AffineTransform overrideMatrix = keyframeMatrix;
+        const AffineTransform resultMatrix = AffineTransformLerp(additiveMatrix, overrideMatrix, cmd.BlendingMode == kBlendingMode_Override);
+
+        _SkeletonMatrices[cmd.SkeletonMatrixBufferIndex + i] = AffineTransformLerp(previousSkeletonMatrix, resultMatrix, isBoneActive ? cmd.Weight : 0);
+    }
+}
+

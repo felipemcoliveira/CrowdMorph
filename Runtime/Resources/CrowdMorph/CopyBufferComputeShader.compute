@@ -1,0 +1,42 @@
+﻿#pragma kernel CopyBufferComputeKernel
+
+#pragma multi_compile_local _4 _8 _16 _32 _48 _64
+
+// ----------------------------------------------------------------------------------------
+// Type Definition
+// ----------------------------------------------------------------------------------------
+
+#if   defined (_4)
+	typedef float DataType;
+#elif defined (_8)
+	typedef float2 DataType;
+#elif defined (_16)
+	typedef float4 DataType;
+#elif defined (_32)
+	typedef float4x2 DataType;
+#elif defined (_48)
+	typedef float3x4 DataType;
+#elif defined (_64)
+	typedef float4x4 DataType;
+#endif 
+
+// ----------------------------------------------------------------------------------------
+// Globals
+// ----------------------------------------------------------------------------------------
+
+uniform StructuredBuffer<DataType> Src;
+uniform RWStructuredBuffer<DataType> Dst;
+
+int g_SrcOffset;
+int g_DstOffset;
+
+// ----------------------------------------------------------------------------------------
+// Kernels
+// ----------------------------------------------------------------------------------------
+
+[numthreads(128, 1, 1)]
+void CopyBufferComputeKernel(uint3 id : SV_DispatchThreadID)
+{
+	Dst[id.x + g_DstOffset] = Src[id.x + g_SrcOffset];
+}
+
